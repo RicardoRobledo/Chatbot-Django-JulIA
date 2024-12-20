@@ -42,12 +42,12 @@ class VectorDBSingleton():
 
         return cls.__client
 
-    # @classmethod
-    # async def create(cls):
-    #    from asgiref.sync import sync_to_async
-    #    docs = [Document(page_content=i.description, metadata={'name': i.name, 'price': float(i.price)}) for i in await sync_to_async(list)(ProductModel.objects.all())]
-    #    await cls.__client.aadd_documents(documents=docs)
-    #    print(await cls.search_similarity_procedure("hamburguesa"))
+    @classmethod
+    async def create(cls):
+        from asgiref.sync import sync_to_async
+        docs = [Document(page_content=i.description, metadata={'name': i.name, 'price': float(i.price)}) for i in await sync_to_async(list)(ProductModel.objects.all())]
+        await cls.__client.aadd_documents(documents=docs)
+        print(await cls.search_similarity_procedure("hamburguesa"))
 
     @classmethod
     async def search_similarity_procedure(cls, text: str):

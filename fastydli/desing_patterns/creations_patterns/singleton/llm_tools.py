@@ -13,7 +13,7 @@ class ExtractSQLQuery(BaseModel):
 
 class ExtractVectorDBQuery(BaseModel):
     """
-    Cuando un cliente pide alguna recomendación sobre platillos o quiere saber si hay platillos con ciertos ingredientes,
+    Cuando un cliente pide alguna recomendación sobre platillos o quiere saber si hay platillos con ciertos ingredientes
     debes de extraer algo dicho por el cliente como una pregunta, frase, etc. es para buscar en una base de datos de vectores por similaridad, debe ser algo genérico sobre
     productos como recomendaciones en base a contenido, recomendaciones de platillos, si hay platillos de cierto
     tipo, platillos con o sin ciertos ingredientes para cierto tipo de personas.
@@ -31,9 +31,28 @@ class AddOrderProduct(BaseModel):
     quantity: str = Field(..., description="Cantidad del producto")
 
 
-class BuyOrder(BaseModel):
+class DeleteOrderProduct(BaseModel):
     """
-    Cuando un cliente diga que ha terminado de ordenar su pedido y confirme su orden
+    Cuando un cliente diga que quiere eliminar un producto o platillo de su orden
     """
 
-    products: List[str] = Field(..., description="Lista de nombres")
+    products: List[str] = Field(...,
+                                description="Lista de nombres de productos")
+
+
+class ModifyOrderProduct(BaseModel):
+    """
+    Cuando un cliente diga que quiere modificar un producto o platillo de su orden cambiando la cantidad, debes de obtener los productos y cantidades correspondientes
+    debe estar ordenados de modo que el primer producto corresponda a la primera cantidad, el segundo producto a la segunda cantidad y así sucesivamente.
+    """
+
+    products: List[str] = Field(..., description="Nombres de productos")
+    quantities: List[str] = Field(..., description="Cantidades de productos")
+
+
+class BuyOrder(BaseModel):
+    """
+    Cuando un cliente confirme su orden
+    """
+
+    pass
