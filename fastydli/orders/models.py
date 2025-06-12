@@ -9,7 +9,7 @@ class ProductModel(BaseModel):
     name = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=7, decimal_places=2)
     description = models.TextField()
-    image = models.ImageField(upload_to='products/')
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -21,9 +21,10 @@ class OrderModel(BaseModel):
     total = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     order_product_id = models.ManyToManyField(
         ProductModel, through='OrderProductModel')
+    address = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
-        return f'Order {self.id} by {self.customer.first_name}'
+        return f'Order {self.id} by {self.customer.id}'
 
 
 class OrderProductModel(BaseModel):

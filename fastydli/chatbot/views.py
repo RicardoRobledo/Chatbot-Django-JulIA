@@ -9,7 +9,6 @@ from fastydli.customers.models import CustomerModel, ConversationHistory
 from fastydli.orders.models import OrderModel
 
 from fastydli.desing_patterns.creations_patterns.singleton.ai_provider_singleton import AIProviderSingleton
-from fastydli.desing_patterns.creations_patterns.singleton.vector_db_singleton import VectorDBSingleton
 
 
 @require_http_methods(['GET'])
@@ -21,16 +20,16 @@ def home(request):
 @require_http_methods(['POST'])
 async def send_message(request):
 
-    VectorDBSingleton()
     AIProviderSingleton()
 
     message = request.POST.get('message')
-    customer_id = request.POST.get('customer_id')
+    phone_number = request.POST.get('phone_number')
     order_id = request.POST.get('order_id')
 
     from asgiref.sync import sync_to_async
 
-    customer = await sync_to_async(CustomerModel.objects.filter)(id=customer_id)
+    customer = await sync_to_async(CustomerModel.objects.filter)(phone_number=phone_number)
+
     # Obtener el primer resultado
     customer_instance = await sync_to_async(lambda: customer.first())()
 

@@ -5,14 +5,16 @@ from fastydli.base.models import BaseModel
 
 class CustomerModel(BaseModel):
 
-    first_name = models.CharField(max_length=20, blank=True, null=True)
-    last_name = models.CharField(max_length=20, blank=True, null=True)
+    phone_number = models.CharField(
+        max_length=15, blank=True, null=True, default=None)
+    customer_profile = models.TextField(blank=True, null=True, default=None)
+    # status = models.TextField(blank=True, null=True, default=None)
 
     def __str__(self):
         return f'{self.id}'
 
     def __repr__(self):
-        return f'CustomerModel(first_name={self.first_name}, last_name={self.last_name}, created_at={self.created_at}, updated_at={self.updated_at})'
+        return f'CustomerModel(phone_number={self.phone_number}, created_at={self.created_at}, updated_at={self.updated_at})'
 
 
 class ConversationHistory(BaseModel):
@@ -21,10 +23,13 @@ class ConversationHistory(BaseModel):
     customer = models.ForeignKey(
         CustomerModel, on_delete=models.CASCADE, blank=True, null=True)
     message = models.TextField(blank=True, null=True)
+    tool_name = models.CharField(max_length=50, blank=True, null=True)
     tool_call_id = models.CharField(max_length=50, blank=True, null=True)
+    call_id = models.CharField(max_length=50, blank=True, null=True)
     type = models.CharField(max_length=30, blank=True,
                             null=True, default='message')
-    tool_calls = models.JSONField(null=True, blank=True)
+    arguments = models.JSONField(null=True, blank=True)
+    result = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f'{self.id}'

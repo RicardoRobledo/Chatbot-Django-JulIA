@@ -1,15 +1,12 @@
-from django.conf import settings
 from http import HTTPStatus
-from langchain_openai import ChatOpenAI
+import json
 
-from langchain_core.messages import SystemMessage, AIMessage, HumanMessage, ToolMessage, ToolCall
-from langchain_community.utilities import SQLDatabase
-from langchain.chains import create_sql_query_chain
+from openai import AsyncOpenAI
+from django.conf import settings
 
-from .llm_tools import ExtractSQLQuery, ExtractVectorDBQuery, AddOrderProduct, ModifyOrderProduct, DeleteOrderProduct, BuyOrder
-from fastydli.customers.models import ConversationHistory
+from fastydli.customers.models import ConversationHistory, CustomerModel
 from fastydli.orders.models import ProductModel, OrderModel, OrderProductModel
-from fastydli.desing_patterns.creations_patterns.singleton.vector_db_singleton import VectorDBSingleton
+from fastydli.base.parsers import OrderFormatter
 
 
 __author__ = 'Ricardo'
@@ -18,7 +15,6 @@ __version__ = '1.0'
 
 class AIProviderSingleton():
 
-    __client_with_tools = None
     __client = None
 
     @classmethod
@@ -27,41 +23,16 @@ class AIProviderSingleton():
         This method create our client
         """
 
-        client = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0.4,
-            api_key=settings.OPENAI_API_KEY,
-        )
-
-        client_with_tools = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0.4,
-            api_key=settings.OPENAI_API_KEY,
-        ).bind_tools([ExtractSQLQuery, ExtractVectorDBQuery, AddOrderProduct, DeleteOrderProduct, ModifyOrderProduct, BuyOrder])
-
-        return (client, client_with_tools)
+        return AsyncOpenAI(api_key=settings.OPENAI_API_KEY,)
 
     def __new__(cls, *args, **kwargs):
 
-        if cls.__client_with_tools == None:
+        if cls.__client == None:
 
             # making connection
-            cls.__client, cls.__client_with_tools = cls.__get_connection()
+            cls.__client = cls.__get_connection()
 
-        return (cls.__client, cls.__client_with_tools)
-
-    @classmethod
-    async def create_single_completion_message(cls, message):
-        """
-        This method creates a new completion message for single tasks
-
-        :param message: the customer that we will use to create the completion message
-        :return: a completion message
-        """
-
-        response = await cls.__client.ainvoke([HumanMessage(message)])
-
-        return response
+        return cls.__client
 
     @classmethod
     async def create_completion_message(cls, customer, order, user_message):
@@ -79,225 +50,186 @@ class AIProviderSingleton():
         from asgiref.sync import sync_to_async
 
         history = []
+        response = None
 
         # Convertimos el queryset en una lista de manera síncrona para evitar problemas al iterar
         conversation_messages = await sync_to_async(list)(ConversationHistory.objects.filter(customer=customer.id))
 
         for conversation_message in conversation_messages:
-            if conversation_message.role == 'system':
-                history.append(SystemMessage(conversation_message.message))
+            if conversation_message.role == 'developer':
+                history.append(
+                    {'role': 'system', 'content': conversation_message.message})
             elif conversation_message.role == 'user':
-                history.append(HumanMessage(conversation_message.message))
+                history.append(
+                    {'role': 'user', 'content': conversation_message.message})
             elif conversation_message.role == 'assistant':
 
                 if conversation_message.type == 'message':
-                    history.append(AIMessage(conversation_message.message))
-                elif conversation_message.type == 'function':
-                    history.append(AIMessage(content='', additional_kwargs={
-                                   'tool_calls': conversation_message.tool_calls, 'refusal': None}))
+                    history.append(
+                        {'role': 'assistant', 'content': conversation_message.message})
+                elif conversation_message.type == 'function_call':
+                    history.append({
+                        'type': conversation_message.type,
+                        'id': conversation_message.tool_call_id,
+                        'call_id': conversation_message.call_id,
+                        'name': conversation_message.tool_name,
+                        'arguments': conversation_message.arguments
+                    })
 
             elif conversation_message.role == 'tool_call':
-                history.append(ToolMessage(
-                    content=conversation_message.message, tool_call_id=conversation_message.tool_call_id))
+                history.append({
+                    "type": "function_call_output",
+                    "call_id": conversation_message.call_id,
+                    "output": conversation_message.result,
+                })
 
-        for i in history:
-            print(i.__repr__())
-            print('--------------------')
-        print()
+        response_message = await cls.__client.responses.create(
+            model='gpt-4.1',
+            input=history,
+            tools=[{
+                "type": "file_search",
+                "vector_store_ids": ["vs_6840d53e459481918c516ea63d62215c"],
+                "max_num_results": 3
+            }, {
+                "type": "function",
+                "name": "finish_order",
+                "description": "Finish the order process to confirm it",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string",
+                            "description": "customer address where the order will be delivered"
+                        },
+                        "customer_profile": {
+                            "type": "string",
+                            "description": "customer summary about what likes, dislikes, allergies, etc."
+                        }
+                    }
+                },
+                "required": ["address", "customer_profile"]
+            }],
+            include=["file_search_call.results"])
 
-        response_message = await cls.__client_with_tools.ainvoke(history)
+        if response_message.output[0].type == 'file_search_call':
 
-        print('#######################')
+            doc = 'Resultados encontrados:'
 
-        if response_message.tool_calls:
+            for result in response_message.output[0].results:
+                doc += f'\n\n{result.text}'
 
-            print(response_message.tool_calls)
+            history.append({'role': 'assistant', 'content': doc})
 
             await sync_to_async(ConversationHistory.objects.create)(
-                role='assistant', type='function', customer=customer, message='', tool_call_id=response_message.tool_calls[0]['id'], tool_calls=response_message.additional_kwargs['tool_calls']
+                role='assistant', customer=customer, message=doc
             )
 
-            history.append(AIMessage(content='', additional_kwargs={
-                           'tool_calls': response_message.additional_kwargs['tool_calls'], 'refusal': None}))
+            response_message = await cls.__client.responses.create(
+                model='gpt-4.1',
+                input=history
+            )
 
-            if response_message.tool_calls[0]['name'] == 'ExtractSQLQuery':
+            await sync_to_async(ConversationHistory.objects.create)(
+                role='assistant', customer=customer, message=response_message.output_text
+            )
 
-                db = SQLDatabase.from_uri("sqlite:///db.sqlite3")
-                chain = create_sql_query_chain(cls.__client_with_tools, db)
-                query = await chain.ainvoke(
-                    {"question": f"""Responde esta pregunta de usuario consultando solmente la tabla de products, en las consultas usa productos despues del from, solo debes retornar el sql sin el formato ```sql```, solo la cadena de consulta: {response_message.tool_calls[0]['args']['sql_query']}"""})
-                response = db.run(query, fetch="cursor")
-                res = f"""Datos obtenidos al consultar la base de datos: {
-                    list(response.mappings())}, debo responder a la pregunta del usuario"""
+            history.append(
+                {'role': 'assistant', 'content': response_message.output_text})
 
-                await sync_to_async(ConversationHistory.objects.create)(
-                    role='tool_call', customer=customer, message=res, tool_call_id=response_message.tool_calls[0]['id'])
+            response = response_message.output_text
 
-                history.append(ToolMessage(
-                    content=res, tool_call_id=response_message.tool_calls[0]['id']))
+        elif response_message.output[0].type == 'function_call':
 
-                response_message = await cls.__client_with_tools.ainvoke(history)
+            history.append({
+                'type': response_message.output[0].type,
+                'id': response_message.output[0].id,
+                'call_id': response_message.output[0].call_id,
+                'name': response_message.output[0].name,
+                'arguments': response_message.output[0].arguments
+            })
 
-                await sync_to_async(ConversationHistory.objects.create)(
-                    role='assistant', customer=customer, message=response_message.content
-                )
+            json_data = json.loads(response_message.output[0].arguments)
 
-                history.append(AIMessage(response_message.content))
+            await sync_to_async(ConversationHistory.objects.create)(
+                role='function_call',
+                customer=customer,
+                tool_name=response_message.output[0].name,
+                tool_call_id=response_message.output[0].id,
+                call_id=response_message.output[0].call_id,
+                type=response_message.output[0].type,
+                arguments=json_data
+            )
 
-            elif response_message.tool_calls[0]['name'] == 'ExtractVectorDBQuery':
+            history.append({
+                "type": "function_call_output",
+                "call_id": response_message.output[0].call_id,
+                "output": 'tool ejecutada',
+            })
 
-                for tool_call in response_message.tool_calls:
+            await sync_to_async(ConversationHistory.objects.create)(
+                role="function_call_output",
+                customer=customer,
+                call_id=response_message.output[0].call_id,
+                result='tool ejecutada'
+            )
 
-                    # Expansión de la consulta para hacerla más adecuada para la búsqueda en la base de datos de vectores
-                    response = await AIProviderSingleton.create_single_completion_message(
-                        f'Debes de expandir esta pregunta, debe ser acorde teniendo en cuenta que se usará para hacer una búsqueda en una base de datos de vectores expandela para abarcar el mayor contexto posible, puede ser una frase larga ficticia: {
-                            user_message}. Solo debes retornar la consulta expandida, nada mas'
-                    )
+            response_parsed = await cls.__client.responses.parse(
+                model='gpt-4.1',
+                input=history +
+                [{'role': 'user', 'content': 'Lo anterior son datos de una orden, debes extraer los productos de la orden, pero el nombre debe ser tal cual el que está en tu conocimiento y herramienta de file_search, extrae el nombre tal cual y sin modificar'}],
+                text_format=OrderFormatter
+            )
 
-                    # Realizar la búsqueda de similitud en la base de datos de vectores de manera asincrónica
-                    documents = await VectorDBSingleton.search_similarity_procedure(response.content)
-                    res = f"información encontrada: {documents}"
+            products_parsed = response_parsed.output_parsed.products
+            products_ordered = []
+            total = 0
 
-                    print(f'----> {res}')
+            for product_parsed in products_parsed:
+                product = await sync_to_async(lambda: ProductModel.objects.filter(name=product_parsed.product).first())()
+                total += product.price * product_parsed.quantity
+                products_ordered.append(OrderProductModel(
+                    product=product, order=order, quantity=product_parsed.quantity))
 
-                    # Agregar entrada a ConversationHistory para la llamada de herramienta
-                    await sync_to_async(ConversationHistory.objects.create)(
-                        role='tool_call', customer=customer, message=res, tool_call_id=tool_call['id']
-                    )
+            await sync_to_async(OrderProductModel.objects.bulk_create)(products_ordered)
 
-                    # Agregar el mensaje de la herramienta al historial
-                    history.append(ToolMessage(
-                        content=res, tool_call_id=tool_call['id']))
+            order.total = total
+            order.address = json_data['address']
+            await sync_to_async(order.save)()
 
-                response_message = await cls.__client_with_tools.ainvoke(history)
+            response_message = await cls.__client.responses.create(
+                model='gpt-4.1',
+                input=history
+            )
 
-                # Agregar el mensaje del asistente al historial
-                await sync_to_async(ConversationHistory.objects.create)(
-                    role='assistant', customer=customer, message=response_message.content
-                )
+            await sync_to_async(ConversationHistory.objects.create)(
+                role='assistant', customer=customer, message=response_message.output_text
+            )
 
-                history.append(AIMessage(response_message.content))
+            history.append(
+                {'role': 'assistant', 'content': response_message.output_text})
 
-            elif response_message.tool_calls[0]['name'] == 'AddOrderProduct':
+            await sync_to_async(ConversationHistory.objects.filter(customer=customer).delete)()
+            await sync_to_async(CustomerModel.objects.update)(customer_profile=json_data['customer_profile'])
 
-                for tool_call in response_message.tool_calls:
-                    # Obtener los datos del 'tool_call' (product y quantity)
-                    product = tool_call['args']['product']
-                    quantity = tool_call['args']['quantity']
+            response = '''**Tu orden ha sido concretada con éxito.**
 
-                    # Obtener el producto desde la base de datos (asincrónico)
-                    product_gotten = await sync_to_async(ProductModel.objects.get)(name=product)
+Sí deseas hablar directamente con alguien para aclarar cualquier duda o tratar este asunto, por favor contacta al siguiente número:
 
-                    # Crear el modelo OrderProduct para asociar el producto con el pedido
-                    await sync_to_async(OrderProductModel.objects.create)(order=order, product=product_gotten, quantity=quantity)
+📞 **4974562444**
 
-                    # Respuesta después de agregar el producto
-                    res = 'El producto fue agregado correctamente'
-
-                    # Crear entrada en ConversationHistory con la respuesta
-                    await sync_to_async(ConversationHistory.objects.create)(
-                        role='tool_call', customer=customer, message=res, tool_call_id=tool_call['id']
-                    )
-
-                    # Agregar el mensaje al historial de la conversación
-                    history.append(ToolMessage(
-                        content=res, tool_call_id=tool_call['id']))
-
-                response_message = await cls.__client_with_tools.ainvoke(history)
-
-                await sync_to_async(ConversationHistory.objects.create)(
-                    role='assistant', customer=customer, message=response_message.content
-                )
-
-                history.append(AIMessage(response_message.content))
-
-            elif response_message.tool_calls[0]['name'] == 'ModifyOrderProduct':
-
-                products = tool_calls[0]['args']['products']
-                quantities = tool_calls[0]['args']['quantities']
-
-                # Obtener el producto desde la base de datos (asincrónico)
-                products_gotten = [await sync_to_async(ProductModel.objects.get)(name=product) for product in products]
-
-                # Crear el modelo OrderProduct para asociar el producto con el pedido
-                for product_gotten, quantity in zip(products_gotten, quantities):
-                    await sync_to_async(OrderProductModel.objects.filter(order=order, product=product_gotten.id).update)(quantity=quantity)
-
-                # Respuesta después de agregar el producto
-                res = 'Producto(s) modificado correctamente'
-
-                # Crear entrada en ConversationHistory con la respuesta
-                await sync_to_async(ConversationHistory.objects.create)(
-                    role='tool_call', customer=customer, message=res, tool_call_id=tool_call['id']
-                )
-
-                # Agregar el mensaje al historial de la conversación
-                history.append(ToolMessage(
-                    content=res, tool_call_id=tool_call['id']))
-
-            elif response_message.tool_calls[0]['name'] == 'DeleteOrderProduct':
-
-                for tool_call in response_message.tool_calls:
-                    products = tool_call['args']['products']
-
-                    # Obtener el producto desde la base de datos (asincrónico)
-                    products_gotten = [await sync_to_async(ProductModel.objects.get)(name=product) for product in products]
-
-                    # Crear el modelo OrderProduct para asociar el producto con el pedido
-                    for product_gotten in products_gotten:
-                        await sync_to_async(OrderProductModel.objects.filter(order=order, product=product_gotten.id).delete)()
-
-                    # Respuesta después de agregar el producto
-                    res = 'Producto(s) eliminado correctamente, informe al cliente'
-
-                    # Crear entrada en ConversationHistory con la respuesta
-                    await sync_to_async(ConversationHistory.objects.create)(
-                        role='tool_call', customer=customer, message=res, tool_call_id=tool_call['id']
-                    )
-
-                    # Agregar el mensaje al historial de la conversación
-                    history.append(ToolMessage(
-                        content=res, tool_call_id=tool_call['id']))
-
-                response_message = await cls.__client_with_tools.ainvoke(history)
-
-                await sync_to_async(ConversationHistory.objects.create)(
-                    role='assistant', customer=customer, message=response_message.content
-                )
-
-                history.append(AIMessage(response_message.content))
-
-            elif response_message.tool_calls[0]['name'] == 'BuyOrder':
-
-                tool_call = response_message.tool_calls[0]
-
-                res = 'Orden concretada correctamente, informe al cliente'
-
-                # Crear entrada en ConversationHistory con la respuesta
-                await sync_to_async(ConversationHistory.objects.create)(
-                    role='tool_call', customer=customer, message=res, tool_call_id=tool_call['id']
-                )
-
-                # Agregar el mensaje al historial de la conversación
-                history.append(ToolMessage(
-                    content=res, tool_call_id=tool_call['id']))
-
-                response_message = await cls.__client_with_tools.ainvoke(history)
-
-                await sync_to_async(ConversationHistory.objects.create)(
-                    role='assistant', customer=customer, message=response_message.content
-                )
-
-                history.append(AIMessage(response_message.content))
+Estamos para ayudarte.'''
 
         else:
 
             await sync_to_async(ConversationHistory.objects.create)(
-                role='assistant', customer=customer, message=response_message.content
+                role='assistant', customer=customer, message=response_message.output_text
             )
 
-            history.append(AIMessage(response_message.content))
+            history.append(
+                {'role': 'assistant', 'content': response_message.output_text})
 
-        message['data'] = {'message': response_message.content}
+            response = response_message.output_text
+
+        message['data'] = {'message': response}
 
         return message

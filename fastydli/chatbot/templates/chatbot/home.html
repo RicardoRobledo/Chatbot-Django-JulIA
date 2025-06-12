@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Asistente Inteligente - Modo Oscuro</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
 
@@ -54,8 +56,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .user-message {
@@ -131,7 +140,8 @@
 
         .popover-body {
             font-size: 12px;
-            line-height: 1.5;   /* Opcional: para mejorar la legibilidad */
+            line-height: 1.5;
+            /* Opcional: para mejorar la legibilidad */
         }
 
         .popover-header {
@@ -158,15 +168,31 @@
         }
 
         @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
         }
 
         @keyframes blink {
-            0% { opacity: 0.2; }
-            20% { opacity: 1; }
-            100% { opacity: 0.2; }
+            0% {
+                opacity: 0.2;
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.2;
+            }
         }
 
         .typing-indicator span:nth-child(2) {
@@ -196,6 +222,7 @@
         }
     </style>
 </head>
+
 <body>
     <iframe src="/media/files/documento.pdf" width="60%" height="600px"></iframe>
     <div class="chat-container">
@@ -204,25 +231,21 @@
         </div>
         <div class="chat-messages" id="chatMessages">
             <div class="message bot-message" id="initial-bot-message">
-                <label class="mb-3" id="initial-message">¡Hola! Soy tu asistente virtual. ¿Para ayudarte necesito que me proporciones la siguiente información?</label>
+                <label class="mb-3" id="initial-message">¡Hola! Soy tu asistente virtual. ¿Para ayudarte necesito que me
+                    proporciones la siguiente información?</label>
                 <form class="bg-secondary p-2 rounded">
-                <input type="text" id="name" placeholder="Nombre" class="form-control form-control-sm mb-2 userInput">
-                <input type="text" id="middle_name" placeholder="Apellido paterno" class="form-control form-control-sm mb-2 userInput">
-                <input type="text" id="last_name" placeholder="Apellido materno" class="form-control form-control-sm mb-2 userInput">
-                <input type="text" id="address" placeholder="Direccion" class="form-control form-control-sm mb-2 userInput">
-                <button type="button" id="sendButton">Enviar</button>
-                <div class="mt-3">
-                    <input type="checkbox" class="form-check-input" id="termsCheck">
-                    <label class="form-check-label" for="termsCheck">
-                        Acepto términos y condiciones
-                    </label>
-                    <i class="fas fa-question-circle text-warning" 
-                       tabindex="0"
-                       data-bs-toggle="popover" 
-                       data-bs-trigger="hover focus" 
-                       data-bs-placement="top" 
-                       data-bs-content="Almacenamos su nombre, apellidos y dirección únicamente para personalizar su experiencia, entender sus preferencias y gestionar sus compras de manera adecuada. Nos comprometemos a no compartir esta información con terceros sin su consentimiento."></i>
-                </div>
+                    <input type="text" id="phone_number" placeholder="Número de teléfono"
+                        class="form-control form-control-sm mb-2 userInput">
+                    <button type="button" id="sendButton">Enviar</button>
+                    <div class="mt-3">
+                        <input type="checkbox" class="form-check-input" id="termsCheck">
+                        <label class="form-check-label" for="termsCheck">
+                            Acepto términos y condiciones
+                        </label>
+                        <i class="fas fa-question-circle text-warning" tabindex="0" data-bs-toggle="popover"
+                            data-bs-trigger="hover focus" data-bs-placement="top"
+                            data-bs-content="Almacenamos su número de teléfono únicamente para personalizar su experiencia, entender sus preferencias y gestionar sus compras de manera adecuada. Nos comprometemos a no compartir esta información con terceros sin su consentimiento."></i>
+                    </div>
                 </form>
             </div>
         </div>
@@ -242,8 +265,12 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.js"
+        integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
     <script>
 
         const url = 'http://127.0.0.1:8000';
@@ -255,16 +282,16 @@
                 return new bootstrap.Popover(popoverTriggerEl);
             });
         });
-        
-        $(document).ready(async function() {
+
+        $(document).ready(async function () {
 
             // Captura el evento submit del formulario
-            $('#chatForm').submit(function(e) {
+            $('#chatForm').submit(function (e) {
                 e.preventDefault();
                 sendMessage();
             });
 
-            $('#sendButton').click(async function(e) {
+            $('#sendButton').click(async function (e) {
                 e.preventDefault();
 
                 await fetch(`${url}/customers/customer/`, {
@@ -273,29 +300,25 @@
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'X-CSRFToken': csrftoken
                     },
-                    body: new URLSearchParams({
-                        name: $('#name').val(),
-                        middle_name: $('#middle_name').val(),
-                        last_name: $('#last_name').val(),
-                        address: $('#address').val() })
-                }).then(async (response)=>{
-                    if(response.status===200){
+                    body: new URLSearchParams({ phone_number: $('#phone_number').val() })
+                }).then(async (response) => {
+                    if (response.status === 200) {
                         return response.json();
                     }
-                }).then(async (data)=>{
-                    localStorage.setItem('customer_id', data['customer_id']);
+                }).then(async (data) => {
+                    localStorage.setItem('phone_number', data['phone_number']);
                     localStorage.setItem('order_id', data['order_id']);
                     return data
                 })
 
-                $('#initial-bot-message form').fadeOut(500, function() {
+                $('#initial-bot-message form').fadeOut(500, function () {
                     $('#initial-bot-message form').remove();
                     $('#initial-message').text('¡Gracias por proporcionar tu información! ¿En qué puedo ayudarte?');
                 });
             });
 
             // Captura el click del botón de envío
-            $('#sendMessageButton').click(async function(event) {
+            $('#sendMessageButton').click(async function (event) {
                 event.preventDefault();
 
                 const message = $.trim($('#userMessageInput').val());
@@ -310,17 +333,17 @@
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'X-CSRFToken': csrftoken
                     },
-                    body: new URLSearchParams({ message: message, customer_id: localStorage.getItem('customer_id'), order_id: localStorage.getItem('order_id')})
-                }).then(async (response)=>{
-                    if(response.status===200){
+                    body: new URLSearchParams({ message: message, phone_number: localStorage.getItem('phone_number'), order_id: localStorage.getItem('order_id') })
+                }).then(async (response) => {
+                    if (response.status === 200) {
                         return response.json();
                     }
-                }).then(async (data)=>{
+                }).then(async (data) => {
                     console.log(data);
                     return data
                 })
-                
-                setTimeout(function() {
+
+                setTimeout(function () {
                     hideTypingIndicator();
                     addMessage(response['data']['message'], 'bot-message');
                 }, 1500);
@@ -328,7 +351,8 @@
 
             // Añadir el mensaje al chat
             function addMessage(text, className) {
-                const messageDiv = $('<div>').addClass('message ' + className).text(text);
+                const messageDiv = $('<div>').addClass('message ' + className);
+                messageDiv.html(marked.parse(text));
                 $('#chatMessages').append(messageDiv);
                 $('#chatMessages').scrollTop($('#chatMessages')[0].scrollHeight);
             }
@@ -346,4 +370,5 @@
         });
     </script>
 </body>
+
 </html>
