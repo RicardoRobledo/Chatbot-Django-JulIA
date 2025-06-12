@@ -12,7 +12,7 @@ SECURE_HSTS_PRELOAD = True
 
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost',
-                 'django-fastydli.onrender.com']
+                 'chatbot-django-fastydli.onrender.com']
 
 DATABASES = {
     'default': {
